@@ -2965,6 +2965,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF) {
     FuncNameRef.consume_back(".volatile");
     FuncName = FuncNameRef.str();
     std::replace(FuncName.begin(), FuncName.end(), '_', '.');
+    Linkage = GlobalValue::ExternalLinkage;
   }
   Function *F = M->getFunction(FuncName);
   if (!F)
@@ -2981,8 +2982,8 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF) {
     auto *NewST = StructType::get(ST->getContext(), ST->elements());
     auto *NewFT = FunctionType::get(NewST, FT->params(), FT->isVarArg());
     F->setName("old_" + Name);
-    auto *NewFn = Function::Create(NewFT, F->getLinkage(), F->getAddressSpace(),
-                                   Name, F->getParent());
+    auto *NewFn = Function::Create(NewFT, GlobalValue::ExternalLinkage,
+                                   F->getAddressSpace(), Name, F->getParent());
     return NewFn;
   }
 
