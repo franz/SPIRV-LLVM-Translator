@@ -217,16 +217,18 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
   assert(CI->getCalledFunction() && "Unexpected indirect call");
   AttributeList Attrs = CI->getCalledFunction()->getAttributes();
 
+
   return mutateCallInstOCL(
       M, CI,
       [=](CallInst *, std::vector<Value *> &Args) {
         for (size_t I = 0; I < Args.size(); ++I) {
           Value *PtrArg = Args[I];
           Type *PtrArgTy = PtrArg->getType();
+          const unsigned AddrSpc = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);
           if (PtrArgTy->isPointerTy()) {
-            if (PtrArgTy->getPointerAddressSpace() != SPIRAS_Generic) {
+            if (PtrArgTy->getPointerAddressSpace() != AddrSpc) {
               Type *FixedPtr = PointerType::getWithSamePointeeType(
-                  cast<PointerType>(PtrArgTy), SPIRAS_Generic);
+                  cast<PointerType>(PtrArgTy), AddrSpc);
               Args[I] = CastInst::CreatePointerBitCastOrAddrSpaceCast(
                   PtrArg, FixedPtr, PtrArg->getName() + ".as", CI);
             }
@@ -254,6 +256,7 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
         return Name;
       },
       &Attrs);
+
 }
 
 Instruction *SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
@@ -279,7 +282,7 @@ Instruction *SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
                                                       .getFirstInsertionPt()));
         PExpected->setAlignment(Align(MemTy->getScalarSizeInBits() / 8));
         new StoreInst(Args[1], PExpected, PInsertBefore);
-        unsigned AddrSpc = SPIRAS_Generic;
+        unsigned AddrSpc = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);
         Type *PtrTyAS = PointerType::getWithSamePointeeType(
             cast<PointerType>(PExpected->getType()), AddrSpc);
         Args[1] = CastInst::CreatePointerBitCastOrAddrSpaceCast(
@@ -323,7 +326,8 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
         }
 
         Value *Invoke = Args[6];
-        auto *Int8PtrTyGen = Type::getInt8PtrTy(*Ctx, SPIRAS_Generic);
+        unsigned TargetGenericAS = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);
+        auto *Int8PtrTyGen = Type::getInt8PtrTy(*Ctx, TargetGenericAS);
         Args[6] = CastInst::CreatePointerBitCastOrAddrSpaceCast(
             Invoke, Int8PtrTyGen, "", PInsertBefore);
 

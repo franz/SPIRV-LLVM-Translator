@@ -2089,7 +2089,8 @@ bool postProcessBuiltinReturningStruct(Function *F) {
       std::vector<Type *> ArgTys;
       getFunctionTypeParameterTypes(F->getFunctionType(), ArgTys);
       ArgTys.insert(ArgTys.begin(),
-                    PointerType::get(F->getReturnType(), SPIRAS_Private));
+                    PointerType::get(F->getReturnType(),
+                    SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction)));
       auto *NewF =
           getOrCreateFunction(M, Type::getVoidTy(*Context), ArgTys, Name);
       auto SretAttr = Attribute::get(*Context, Attribute::AttrKind::StructRet,
