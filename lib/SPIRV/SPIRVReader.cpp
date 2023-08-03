@@ -1591,7 +1591,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
     if (BS == StorageClassFunction && !Init) {
       assert(BB && "Invalid BB");
-      return mapValue(BV, new AllocaInst(Ty, 0, BV->getName(), BB));
+      return mapValue(BV, new AllocaInst(Ty,
+                    SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction),
+                    BV->getName(), BB));
     }
 
     SPIRAddressSpace AddrSpace;
@@ -1699,7 +1701,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     llvm::Type *Ty = transType(BV->getType()->getPointerElementType());
     llvm::Value *ArrSize = transValue(VLA->getOperand(0), F, BB);
     return mapValue(
-        BV, new AllocaInst(Ty, SPIRAS_Private, ArrSize, BV->getName(), BB));
+        BV, new AllocaInst(Ty, SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction),
+                           ArrSize, BV->getName(), BB));
   }
 
   case OpRestoreMemoryINTEL: {
@@ -2157,7 +2160,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpCopyObject: {
     SPIRVCopyObject *CO = static_cast<SPIRVCopyObject *>(BV);
     auto *Ty = transType(CO->getOperand()->getType());
-    AllocaInst *AI = new AllocaInst(Ty, 0, "", BB);
+    AllocaInst *AI = new AllocaInst(Ty, SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction),
+                                    "", BB);
     new StoreInst(transValue(CO->getOperand(), F, BB), AI, BB);
     LoadInst *LI = new LoadInst(Ty, AI, "", BB);
     return mapValue(BV, LI);
@@ -2498,7 +2502,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         static_cast<SPIRVFPGARegINTELInstBase *>(BV);
 
     PointerType *Int8PtrTyPrivate =
-        Type::getInt8PtrTy(*Context, SPIRAS_Private);
+        Type::getInt8PtrTy(*Context,
+                           SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction));
     IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
     Value *UndefInt8Ptr = UndefValue::get(Int8PtrTyPrivate);
@@ -2701,7 +2706,9 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   Args.reserve(8);
   if (RetTy->getIntegerBitWidth() > 64) {
     llvm::PointerType *RetPtrTy = llvm::PointerType::get(RetTy, SPIRAS_Generic);
-    Value *Alloca = new AllocaInst(RetTy, SPIRAS_Private, "", BB);
+    Value *Alloca = new AllocaInst(RetTy,
+                                   SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction),
+                                   "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
     ArgTys.emplace_back(RetPtrTy);
     Args.emplace_back(RetValPtr);
@@ -2825,7 +2832,9 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   if (RetTy->getIntegerBitWidth() > 64) {
     llvm::PointerType *RetPtrTy = llvm::PointerType::get(RetTy, SPIRAS_Generic);
     ArgTys.push_back(RetPtrTy);
-    Value *Alloca = new AllocaInst(RetTy, SPIRAS_Private, "", BB);
+    Value *Alloca = new AllocaInst(RetTy,
+                                   SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction),
+                                   "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
     Args.push_back(RetValPtr);
   }
@@ -3168,7 +3177,8 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       transTypeVector(SPIRVInstruction::getOperandTypes(Ops), true);
   for (auto &I : ArgTys) {
     if (isa<FunctionType>(I)) {
-      I = TypedPointerType::get(I, SPIRAS_Private);
+      I = TypedPointerType::get(I,
+              SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction));
     }
   }
 
@@ -3599,7 +3609,7 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
 
     IRBuilder<> Builder(Inst->getParent());
 
-    Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRAS_Private);
+    Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction));
     IntegerType *Int32Ty = IntegerType::get(*Context, 32);
 
     Value *UndefInt8Ptr = UndefValue::get(Int8PtrTyPrivate);
@@ -3718,7 +3728,8 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
           GV->getContext(), GV->getType()->getPointerAddressSpace());
       Constant *C = ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, ResType);
 
-      Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRAS_Private);
+      Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context,
+                                                  SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction));
       IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
       llvm::Constant *Fields[5] = {
@@ -3779,7 +3790,8 @@ void SPIRVToLLVM::transUserSemantic(SPIRV::SPIRVFunction *Fun) {
     Constant *C =
         ConstantExpr::getPointerBitCastOrAddrSpaceCast(TransFun, ResType);
 
-    Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRAS_Private);
+    Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context,
+                 SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction));
     IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
     llvm::Constant *Fields[5] = {
@@ -4187,8 +4199,11 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
       [=](SPIRVFunctionParameter *Arg) {
         SPIRVType *ArgTy = Arg->getType();
         SPIRAddressSpace AS = SPIRAS_Private;
-        if (ArgTy->isTypePointer())
-          AS = SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
+        if (ArgTy->isTypePointer()) {
+          bool J = SPIRSPIRVAddrSpaceMap::rfind(ArgTy->getPointerStorageClass(),
+                                                &AS);
+          assert(J && "Invalid AS");
+        }
         else if (ArgTy->isTypeOCLImage() || ArgTy->isTypePipe())
           AS = SPIRAS_Global;
         return ConstantAsMetadata::get(
