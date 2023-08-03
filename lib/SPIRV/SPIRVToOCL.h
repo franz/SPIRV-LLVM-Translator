@@ -55,9 +55,9 @@ namespace SPIRV {
 class SPIRVToOCLBase : public InstVisitor<SPIRVToOCLBase>,
                        protected BuiltinCallHelper {
 public:
-  SPIRVToOCLBase()
+  SPIRVToOCLBase(SPIRV::TargetMachine T)
       : BuiltinCallHelper(ManglingRules::OpenCL, translateOpaqueType),
-        M(nullptr), Ctx(nullptr) {}
+        TM(T), M(nullptr), Ctx(nullptr) {}
   virtual ~SPIRVToOCLBase() {}
 
   virtual bool runSPIRVToOCL(Module &M) = 0;
@@ -290,6 +290,7 @@ private:
                                              unsigned ImOpArgIndex);
 
 protected:
+  SPIRV::TargetMachine TM;
   Module *M;
   LLVMContext *Ctx;
 };
@@ -304,6 +305,7 @@ public:
 
 class SPIRVToOCL12Base : public SPIRVToOCLBase {
 public:
+  SPIRVToOCL12Base(SPIRV::TargetMachine T) : SPIRVToOCLBase(T) {}
   bool runSPIRVToOCL(Module &M) override;
 
   /// Transform __spirv_MemoryBarrier to atomic_work_item_fence.
@@ -375,6 +377,8 @@ public:
 class SPIRVToOCL12Pass : public llvm::PassInfoMixin<SPIRVToOCL12Pass>,
                          public SPIRVToOCL12Base {
 public:
+  SPIRVToOCL12Pass(SPIRV::TargetMachine T) : SPIRVToOCL12Base(T) {}
+  SPIRVToOCL12Pass() : SPIRVToOCL12Base(SPIRV::TargetMachine::SPIR) {}
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM) {
     return runSPIRVToOCL(M) ? llvm::PreservedAnalyses::none()
@@ -382,9 +386,9 @@ public:
   }
 };
 
-class SPIRVToOCL12Legacy : public SPIRVToOCL12Base, public SPIRVToOCLLegacy {
+class SPIRVToOCL12Legacy : public SPIRVToOCLLegacy, public SPIRVToOCL12Base {
 public:
-  SPIRVToOCL12Legacy() : SPIRVToOCLLegacy(ID) {
+  SPIRVToOCL12Legacy(SPIRV::TargetMachine T) : SPIRVToOCLLegacy(ID), SPIRVToOCL12Base(T) {
     initializeSPIRVToOCL12LegacyPass(*PassRegistry::getPassRegistry());
   }
   bool runOnModule(Module &M) override;
@@ -394,6 +398,7 @@ public:
 
 class SPIRVToOCL20Base : public SPIRVToOCLBase {
 public:
+  SPIRVToOCL20Base(SPIRV::TargetMachine T) : SPIRVToOCLBase(T) {}
   bool runSPIRVToOCL(Module &M) override;
 
   /// Transform __spirv_MemoryBarrier to atomic_work_item_fence.
@@ -445,7 +450,10 @@ public:
 
 class SPIRVToOCL20Pass : public llvm::PassInfoMixin<SPIRVToOCL20Pass>,
                          public SPIRVToOCL20Base {
+
 public:
+  SPIRVToOCL20Pass(SPIRV::TargetMachine T) : SPIRVToOCL20Base(T) {}
+  SPIRVToOCL20Pass() : SPIRVToOCL20Base(SPIRV::TargetMachine::SPIR) {}
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM) {
     return runSPIRVToOCL(M) ? llvm::PreservedAnalyses::none()
@@ -455,7 +463,7 @@ public:
 
 class SPIRVToOCL20Legacy : public SPIRVToOCLLegacy, public SPIRVToOCL20Base {
 public:
-  SPIRVToOCL20Legacy() : SPIRVToOCLLegacy(ID) {
+  SPIRVToOCL20Legacy(SPIRV::TargetMachine T) : SPIRVToOCLLegacy(ID), SPIRVToOCL20Base(T) {
     initializeSPIRVToOCL20LegacyPass(*PassRegistry::getPassRegistry());
   }
   bool runOnModule(Module &M) override;
@@ -465,7 +473,8 @@ public:
 /// Add passes for translating SPIR-V Instructions to the desired
 /// representation in LLVM IR (such as OpenCL builtins or SPIR-V Friendly IR).
 void addSPIRVBIsLoweringPass(ModulePassManager &PassMgr,
-                             SPIRV::BIsRepresentation BIsRep);
+                             SPIRV::BIsRepresentation BIsRep,
+                             SPIRV::TargetMachine TM);
 
 } // namespace SPIRV
 

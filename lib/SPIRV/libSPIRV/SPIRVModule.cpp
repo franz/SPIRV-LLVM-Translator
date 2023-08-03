@@ -448,6 +448,8 @@ public:
 
   virtual SPIRVId getExtInstSetId(SPIRVExtInstSetKind Kind) const override;
 
+  virtual unsigned getTargetMachineAS(SPIRVStorageClassKind Val) override;
+
   // I/O functions
   friend spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M);
   friend std::istream &operator>>(std::istream &I, SPIRVModule &M);
@@ -2128,6 +2130,50 @@ SPIRVId SPIRVModuleImpl::getExtInstSetId(SPIRVExtInstSetKind Kind) const {
   return Res->second;
 }
 
+unsigned SPIRVModule::getTargetMachineAS(SPIRV::TargetMachine TM, SPIRVStorageClassKind Val) {
+  switch (TM) {
+    case TargetMachine::NVPTX:
+      switch(Val) {
+        case StorageClassFunction: return 0; // try generic for private
+        case StorageClassCrossWorkgroup: return 1; // global = 1
+        case StorageClassUniformConstant: return 4; // constant = 4
+        case StorageClassWorkgroup: return 3; // local = 3
+        case StorageClassGeneric: return 0; // generic = 0
+
+        case StorageClassDeviceOnlyINTEL: return 6; // INTEL; TODO what to do with these
+        case StorageClassHostOnlyINTEL: return 7; // INTEL
+        default:
+          std::cerr << "ERROR: UNKNOWN AS requested: " << (unsigned)Val << "\n";
+          return 0;  // 0 is generic for NVPTX
+      }
+    case TargetMachine::CPU:
+      return 0;
+    case TargetMachine::SPIR:
+      switch(Val) {
+        case StorageClassFunction: return 0; // private = 0
+        case StorageClassCrossWorkgroup: return 1; // global = 1
+        case StorageClassUniformConstant: return 2; // constant = 2
+        case StorageClassWorkgroup: return 3; // local = 3
+        case StorageClassGeneric: return 4; // generic = 4
+
+        case StorageClassDeviceOnlyINTEL: return 15; // INTEL; TODO what to do with these
+        case StorageClassHostOnlyINTEL: return 16; // INTEL
+        default:
+          std::cerr << "ERROR: UNKNOWN AS requested: " << (unsigned)Val << "\n";
+          return 0; // private
+      }
+    default:
+      llvm_unreachable("Unknown TM requested");
+      return 0;
+  }
+
+}
+
+unsigned SPIRVModuleImpl::getTargetMachineAS(SPIRVStorageClassKind Val) {
+  return SPIRVModule::getTargetMachineAS(getDesiredTargetMachine(), Val);
+}
+
+
 bool isSpirvBinary(const std::string &Img) {
   if (Img.size() < sizeof(unsigned))
     return false;
@@ -2189,5 +2235,6 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
 }
 
 #endif // _SPIRV_SUPPORT_TEXT_FMT
+
 
 } // namespace SPIRV

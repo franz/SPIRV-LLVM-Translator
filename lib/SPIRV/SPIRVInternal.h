@@ -217,23 +217,6 @@ inline void SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind>::init() {
 }
 typedef SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind> SPIRSPIRVAddrSpaceMap;
 
-template <>
-inline SPIRAddressSpace SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind>::rmap(SPIRVStorageClassKind x) {
-  switch(x) {
-//    case StorageClassFunction: return SPIRAS_GlobalDevice; // private = 5 in cuda
-    case StorageClassFunction: return SPIRAS_Private; // try 0 as private
-    case StorageClassCrossWorkgroup: return  SPIRAS_Global; // global = 1
-    case StorageClassUniformConstant: return SPIRAS_Generic; // constant = 4
-    case StorageClassWorkgroup: return SPIRAS_Local; // local = 3
-    case StorageClassGeneric: return SPIRAS_Private; // generic = 0
-
-    case StorageClassDeviceOnlyINTEL: return SPIRAS_GlobalDevice; // INTEL; TODO this conflicts with private
-    case StorageClassHostOnlyINTEL: return SPIRAS_GlobalHost; // INTEL
-    default:
-      return SPIRAS_Private;  // 0 is generic for CUDA
-  }
-}
-
 // Maps OCL builtin function to SPIRV builtin variable.
 template <>
 inline void SPIRVMap<std::string, SPIRVAccessQualifierKind>::init() {
@@ -1014,7 +997,7 @@ bool lowerBuiltinVariablesToCalls(Module *M);
 /// Some builtin functions are translated to SPIR-V instructions with
 /// struct type result, e.g. NDRange creation functions. Such functions
 /// need to be post-processed to return the struct through sret argument.
-bool postProcessBuiltinReturningStruct(Function *F);
+bool postProcessBuiltinReturningStruct(Function *F, SPIRV::TargetMachine TM);
 
 /// \brief Post-process OpenCL or SPIRV builtin function having array argument.
 ///
@@ -1022,7 +1005,8 @@ bool postProcessBuiltinReturningStruct(Function *F);
 /// first, then post-processed to have pointer arguments.
 bool postProcessBuiltinWithArrayArguments(Function *F, StringRef DemangledName);
 
-bool postProcessBuiltinsReturningStruct(Module *M, bool IsCpp = false);
+bool postProcessBuiltinsReturningStruct(Module *M, SPIRV::TargetMachine TM,
+                                        bool IsCpp = false);
 
 bool postProcessBuiltinsWithArrayArguments(Module *M, bool IsCpp = false);
 

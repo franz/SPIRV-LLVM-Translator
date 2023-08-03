@@ -537,6 +537,13 @@ public:
     return TranslationOpts.getDesiredBIsRepresentation();
   }
 
+  TargetMachine getDesiredTargetMachine() const {
+    return TranslationOpts.getDesiredTargetMachine();
+  }
+
+  virtual unsigned getTargetMachineAS(SPIRVStorageClassKind Val) = 0;
+  static unsigned getTargetMachineAS(SPIRV::TargetMachine TM, SPIRVStorageClassKind Val);
+
   // I/O functions
   friend spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M);
   friend std::istream &operator>>(std::istream &I, SPIRVModule &M);

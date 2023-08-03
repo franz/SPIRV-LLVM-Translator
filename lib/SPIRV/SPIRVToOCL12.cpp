@@ -59,7 +59,7 @@ bool SPIRVToOCL12Base::runSPIRVToOCL(Module &Module) {
 
   visit(*M);
 
-  postProcessBuiltinsReturningStruct(M);
+  postProcessBuiltinsReturningStruct(M, TM);
   postProcessBuiltinsWithArrayArguments(M);
 
   eraseUselessFunctions(&Module);
@@ -240,6 +240,6 @@ std::string SPIRVToOCL12Base::mapAtomicName(Op OC, Type *Ty) {
 INITIALIZE_PASS(SPIRVToOCL12Legacy, "spvtoocl12",
                 "Translate SPIR-V builtins to OCL 1.2 builtins", false, false)
 
-ModulePass *llvm::createSPIRVToOCL12Legacy() {
-  return new SPIRVToOCL12Legacy();
+ModulePass *llvm::createSPIRVToOCL12Legacy(SPIRV::TargetMachine TM) {
+  return new SPIRVToOCL12Legacy(TM);
 }

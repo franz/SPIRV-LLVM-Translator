@@ -80,6 +80,8 @@ enum class BIsRepresentation : uint32_t { OpenCL12, OpenCL20, SPIRVFriendlyIR };
 
 enum class FPContractMode : uint32_t { On, Off, Fast };
 
+enum class TargetMachine : uint32_t { SPIR, NVPTX, CPU };
+
 enum class DebugInfoEIS : uint32_t { SPIRV_Debug, OpenCL_DebugInfo_100 };
 
 /// \brief Helper class to manage SPIR-V translation
@@ -145,6 +147,15 @@ public:
     return DesiredRepresentationOfBIs;
   }
 
+  void setDesiredTargetMachine(TargetMachine Value) {
+    DesiredTargetMachine = Value;
+  }
+
+  TargetMachine getDesiredTargetMachine() const {
+    return DesiredTargetMachine;
+  }
+
+
   void setFPContractMode(FPContractMode Mode) { FPCMode = Mode; }
 
   FPContractMode getFPContractMode() const { return FPCMode; }
@@ -193,6 +204,9 @@ private:
   // Representation of built-ins, which should be used while translating from
   // SPIR-V to back to LLVM IR
   BIsRepresentation DesiredRepresentationOfBIs = BIsRepresentation::OpenCL12;
+  // Adress space numbers and a few details depend on target;
+  // by default, use SPIR target
+  TargetMachine DesiredTargetMachine = TargetMachine::SPIR;
   // Controls floating point contraction.
   //
   // - FPContractMode::On allows to choose a mode according to

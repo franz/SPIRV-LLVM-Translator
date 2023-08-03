@@ -74,8 +74,8 @@ void SPIRVToOCLBase::visitCallInst(CallInst &CI) {
       // TODO: Lower the printf instruction with the non-constant address space
       // format string to suitable for OpenCL representation
       auto *PT = dyn_cast<PointerType>(CI.getOperand(0)->getType());
-      SPIRAddressSpace TargetConstantAS =
-              SPIRSPIRVAddrSpaceMap::rmap(StorageClassUniformConstant);
+      unsigned TargetConstantAS =
+              SPIRVModule::getTargetMachineAS(TM, StorageClassUniformConstant);
       if (PT && PT->getAddressSpace() == TargetConstantAS)
         visitCallSPIRVPrintf(&CI, ExtOp);
       break;
@@ -563,18 +563,20 @@ void SPIRVToOCLBase::visitCallSPIRVPipeBuiltin(CallInst *CI, Op OC) {
   auto Mutator = mutateCallInst(CI, DemangledName);
   if (HasScope)
     Mutator.removeArg(0);
+  SPIRV::TargetMachine TM2 = TM;
   if (OC == OpReadPipe || OC == OpWritePipe || OC == OpReservedReadPipe ||
       OC == OpReservedWritePipe || OC == OpReadPipeBlockingINTEL ||
       OC == OpWritePipeBlockingINTEL) {
-    Mutator.mapArg(Mutator.arg_size() - 3, [](IRBuilder<> &Builder, Value *P) {
+    Mutator.mapArg(Mutator.arg_size() - 3, [TM2](IRBuilder<> &Builder, Value *P) {
       Type *T = P->getType();
       assert(isa<PointerType>(T));
-      auto *NewTy = Builder.getInt8PtrTy(SPIRAS_Generic);
+      unsigned GenAS = SPIRVModule::getTargetMachineAS(TM2, StorageClassGeneric);
+      auto *NewTy = Builder.getInt8PtrTy(GenAS);
       if (T != NewTy) {
         P = Builder.CreatePointerBitCastOrAddrSpaceCast(P, NewTy);
       }
       return std::make_pair(
-          P, TypedPointerType::get(Builder.getInt8Ty(), SPIRAS_Generic));
+          P, TypedPointerType::get(Builder.getInt8Ty(), GenAS));
     });
   }
 }
@@ -627,23 +629,19 @@ void SPIRVToOCLBase::visitCallBuildNDRangeBuiltIn(CallInst *CI, Op OC,
 
 void SPIRVToOCLBase::visitCallGenericCastToPtrExplicitBuiltIn(CallInst *CI,
                                                               Op OC) {
-  assert(CI->getCalledFunction() && "Unexpected indirect call");
   StringRef Name;
-  auto AddrSpace =
-      static_cast<SPIRAddressSpace>(CI->getType()->getPointerAddressSpace());
-  switch (AddrSpace) {
-  case SPIRAS_Global:
+  Function *F = CI->getCalledFunction();
+  assert(F && F->hasName());
+
+  if (F->getName().contains(kSPIRVPostfix::ToGlobal))
     Name = kOCLBuiltinName::ToGlobal;
-    break;
-  case SPIRAS_Local:
+  else if (F->getName().contains(kSPIRVPostfix::ToLocal))
     Name = kOCLBuiltinName::ToLocal;
-    break;
-  case SPIRAS_Private:
+  else if (F->getName().contains(kSPIRVPostfix::ToPrivate))
     Name = kOCLBuiltinName::ToPrivate;
-    break;
-  default:
-    llvm_unreachable("Invalid address space");
-  }
+  else
+    llvm_unreachable("Invalid (unknown) address space");
+
   mutateCallInst(CI, Name.str())
       // The instruction has two arguments, whereas ocl built-in has only one
       // argument.
@@ -1104,13 +1102,14 @@ std::string SPIRVToOCLBase::translateOpaqueType(StringRef STName) {
 }
 
 void addSPIRVBIsLoweringPass(ModulePassManager &PassMgr,
-                             SPIRV::BIsRepresentation BIsRep) {
+                             SPIRV::BIsRepresentation BIsRep,
+                             SPIRV::TargetMachine TM) {
   switch (BIsRep) {
   case SPIRV::BIsRepresentation::OpenCL12:
-    PassMgr.addPass(SPIRVToOCL12Pass());
+    PassMgr.addPass(SPIRVToOCL12Pass(TM));
     break;
   case SPIRV::BIsRepresentation::OpenCL20:
-    PassMgr.addPass(SPIRVToOCL20Pass());
+    PassMgr.addPass(SPIRVToOCL20Pass(TM));
     break;
   case SPIRV::BIsRepresentation::SPIRVFriendlyIR:
     // nothing to do, already done
@@ -1122,12 +1121,13 @@ void addSPIRVBIsLoweringPass(ModulePassManager &PassMgr,
 
 ModulePass *
 llvm::createSPIRVBIsLoweringPass(Module &M,
-                                 SPIRV::BIsRepresentation BIsRepresentation) {
+                                 SPIRV::BIsRepresentation BIsRepresentation,
+                                 SPIRV::TargetMachine TM) {
   switch (BIsRepresentation) {
   case SPIRV::BIsRepresentation::OpenCL12:
-    return createSPIRVToOCL12Legacy();
+    return createSPIRVToOCL12Legacy(TM);
   case SPIRV::BIsRepresentation::OpenCL20:
-    return createSPIRVToOCL20Legacy();
+    return createSPIRVToOCL20Legacy(TM);
   case SPIRV::BIsRepresentation::SPIRVFriendlyIR:
     // nothing to do, already done
     return nullptr;

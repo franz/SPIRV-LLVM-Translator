@@ -197,15 +197,16 @@ ModulePass *createSPIRVRegularizeLLVMLegacy();
 
 /// Create a pass for translating SPIR-V Instructions to desired
 /// representation in LLVM IR (OpenCL built-ins, SPIR-V Friendly IR, etc.)
-ModulePass *createSPIRVBIsLoweringPass(Module &, SPIRV::BIsRepresentation);
+ModulePass *createSPIRVBIsLoweringPass(Module &, SPIRV::BIsRepresentation,
+                                       SPIRV::TargetMachine);
 
 /// Create a pass for translating SPIR-V builtin functions to OCL 1.2 builtin
 /// functions.
-ModulePass *createSPIRVToOCL12Legacy();
+ModulePass *createSPIRVToOCL12Legacy(SPIRV::TargetMachine TM);
 
 /// Create a pass for translating SPIR-V builtin functions to OCL 2.0 builtin
 /// functions.
-ModulePass *createSPIRVToOCL20Legacy();
+ModulePass *createSPIRVToOCL20Legacy(SPIRV::TargetMachine TM);
 
 /// Create a pass for translating SPIR 1.2/2.0 metadata to SPIR-V friendly
 /// metadata.

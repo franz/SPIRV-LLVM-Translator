@@ -183,6 +183,7 @@ const char *MangledAttribute[ATTR_NUM] = {
     "r", "V", "K", "", "U3AS1", "U3AS2", "U3AS3", "U3AS4",
 };
 
+
 // SPIR supported version - stated version is oldest supported version.
 static const SPIRversion PrimitiveSupportedVersions[PRIMITIVE_NUM] = {
     SPIR12, // BOOL

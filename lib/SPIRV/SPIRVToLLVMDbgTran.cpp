@@ -168,7 +168,7 @@ DIType *SPIRVToLLVMDbgTran::transTypePointer(const SPIRVExtInst *DebugInst) {
   std::optional<unsigned> AS;
   if (Ops[StorageClassIdx] != ~0U) {
     auto SC = static_cast<SPIRVStorageClassKind>(Ops[StorageClassIdx]);
-    AS = SPIRSPIRVAddrSpaceMap::rmap(SC);
+    AS = BM->getTargetMachineAS(SC);
   }
   DIType *Ty;
   SPIRVWord Flags = Ops[FlagsIdx];

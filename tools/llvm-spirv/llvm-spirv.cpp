@@ -144,6 +144,17 @@ static cl::opt<SPIRV::BIsRepresentation> BIsRepresentation(
                    "SPIR-V Friendly IR")),
     cl::init(SPIRV::BIsRepresentation::OpenCL12));
 
+static cl::opt<SPIRV::TargetMachine> TargetMachine(
+    "target-machine",
+    cl::desc("Specify the target machine of the SPIR-V -> LLVM IR translation,"
+             " this affects the Address Space numbers and the Module DL"),
+    cl::values(
+        clEnumValN(SPIRV::TargetMachine::SPIR, "spir", "SPIR"),
+        clEnumValN(SPIRV::TargetMachine::CPU, "cpu", "CPU"),
+        clEnumValN(SPIRV::TargetMachine::NVPTX, "nvptx", "NVPTX")),
+    cl::init(SPIRV::TargetMachine::SPIR));
+
+
 static cl::opt<bool>
     PreserveOCLKernelArgTypeMetadataThroughString(
         "preserve-ocl-kernel-arg-type-metadata-through-string", cl::init(false),
@@ -682,6 +693,15 @@ int main(int Ac, char **Av) {
                 "affects translation from SPIR-V to LLVM IR";
     } else {
       Opts.setDesiredBIsRepresentation(BIsRepresentation);
+    }
+  }
+
+  if (TargetMachine.getNumOccurrences() != 0) {
+    if (!IsReverse) {
+      errs() << "Note: --target-machine option ignored as it only "
+                "affects translation from SPIR-V to LLVM IR";
+    } else {
+      Opts.setDesiredTargetMachine(TargetMachine);
     }
   }
 

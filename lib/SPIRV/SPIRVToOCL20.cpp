@@ -48,6 +48,7 @@ char SPIRVToOCL20Legacy::ID = 0;
 bool SPIRVToOCL20Legacy::runOnModule(Module &Module) {
   return SPIRVToOCL20Base::runSPIRVToOCL(Module);
 }
+
 bool SPIRVToOCL20Base::runSPIRVToOCL(Module &Module) {
   M = &Module;
   Ctx = &M->getContext();
@@ -58,7 +59,7 @@ bool SPIRVToOCL20Base::runSPIRVToOCL(Module &Module) {
 
   visit(*M);
 
-  postProcessBuiltinsReturningStruct(M);
+  postProcessBuiltinsReturningStruct(M, TM);
   postProcessBuiltinsWithArrayArguments(M);
 
   eraseUselessFunctions(&Module);
@@ -171,10 +172,12 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
   auto OrderIdx = Ptr + 2;
   auto Mutator = mutateCallInst(CI, Name);
 
-  SPIRAddressSpace TargetGenericAS = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);
+  unsigned AS =
+      SPIRVModule::getTargetMachineAS(TM, StorageClassGeneric);
+  SPIRAddressSpace TargetGenericAS = static_cast<SPIRAddressSpace>(AS);
   Mutator.mapArgs([=](IRBuilder<> &Builder, Value *PtrArg, Type *PtrArgTy) {
     if (auto *TypedPtrTy = dyn_cast<TypedPointerType>(PtrArgTy)) {
-      if (TypedPtrTy->getAddressSpace() != TargetGenericAS) // SPIRAS_Generic
+      if (TypedPtrTy->getAddressSpace() != TargetGenericAS)
       {
         Type *ElementTy = TypedPtrTy->getElementType();
         Type *FixedPtr = PointerType::get(ElementTy, TargetGenericAS);
@@ -218,7 +221,7 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
       .mapArg(1,
               [=](IRBuilder<> &Builder, Value *Expected) {
                 Builder.CreateStore(Expected, PExpected);
-                unsigned AddrSpc = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);;
+                unsigned AddrSpc = SPIRVModule::getTargetMachineAS(TM, StorageClassGeneric);
                 Type *PtrTyAS = PointerType::getWithSamePointeeType(
                     cast<PointerType>(PExpected->getType()), AddrSpc);
                 Value *V = Builder.CreateAddrSpaceCast(
@@ -260,7 +263,8 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
     FName = "__enqueue_kernel_events_varargs";
 
   auto Mutator = mutateCallInst(CI, FName.str());
-  SPIRAddressSpace TargetGenericAS = SPIRSPIRVAddrSpaceMap::rmap(StorageClassGeneric);
+  unsigned AS = SPIRVModule::getTargetMachineAS(TM, StorageClassGeneric);
+  SPIRAddressSpace TargetGenericAS = static_cast<SPIRAddressSpace>(AS);
   Mutator.mapArg(6, [=](IRBuilder<> &Builder, Value *Invoke) {
     Value *Replace = CastInst::CreatePointerBitCastOrAddrSpaceCast(
         Invoke, Builder.getInt8PtrTy(TargetGenericAS), "", CI);
@@ -294,6 +298,6 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
 INITIALIZE_PASS(SPIRVToOCL20Legacy, "spvtoocl20",
                 "Translate SPIR-V builtins to OCL 2.0 builtins", false, false)
 
-ModulePass *llvm::createSPIRVToOCL20Legacy() {
-  return new SPIRVToOCL20Legacy();
+ModulePass *llvm::createSPIRVToOCL20Legacy(SPIRV::TargetMachine TM) {
+  return new SPIRVToOCL20Legacy(TM);
 }

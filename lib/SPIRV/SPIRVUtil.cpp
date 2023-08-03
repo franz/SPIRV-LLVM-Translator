@@ -2068,7 +2068,7 @@ bool lowerBuiltinVariablesToCalls(Module *M) {
   return true;
 }
 
-bool postProcessBuiltinReturningStruct(Function *F) {
+bool postProcessBuiltinReturningStruct(Function *F, SPIRV::TargetMachine TM) {
   Module *M = F->getParent();
   LLVMContext *Context = &M->getContext();
   std::string Name = F->getName().str();
@@ -2081,7 +2081,7 @@ bool postProcessBuiltinReturningStruct(Function *F) {
       getFunctionTypeParameterTypes(F->getFunctionType(), ArgTys);
       ArgTys.insert(ArgTys.begin(),
                     PointerType::get(F->getReturnType(),
-                    SPIRSPIRVAddrSpaceMap::rmap(StorageClassFunction)));
+                    SPIRVModule::getTargetMachineAS(TM, StorageClassFunction)));
       auto *NewF =
           getOrCreateFunction(M, Type::getVoidTy(*Context), ArgTys, Name);
       auto SretAttr = Attribute::get(*Context, Attribute::AttrKind::StructRet,
@@ -2133,7 +2133,9 @@ bool postProcessBuiltinWithArrayArguments(Function *F,
   return true;
 }
 
-bool postProcessBuiltinsReturningStruct(Module *M, bool IsCpp) {
+bool postProcessBuiltinsReturningStruct(Module *M,
+                                        SPIRV::TargetMachine TM,
+                                        bool IsCpp) {
   StringRef DemangledName;
   // postProcessBuiltinReturningStruct may remove some functions from the
   // module, so use make_early_inc_range
@@ -2142,7 +2144,7 @@ bool postProcessBuiltinsReturningStruct(Module *M, bool IsCpp) {
       LLVM_DEBUG(dbgs() << "[postProcess sret] " << F << '\n');
       if (F.getReturnType()->isStructTy() &&
           oclIsBuiltin(F.getName(), DemangledName, IsCpp)) {
-        if (!postProcessBuiltinReturningStruct(&F))
+        if (!postProcessBuiltinReturningStruct(&F, TM))
           return false;
       }
     }
